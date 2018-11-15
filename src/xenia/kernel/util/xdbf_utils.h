@@ -1,11 +1,11 @@
 /**
- ******************************************************************************
- * Xenia : Xbox 360 Emulator Research Project                                 *
- ******************************************************************************
- * Copyright 2016 Ben Vanik. All rights reserved.                             *
- * Released under the BSD license - see LICENSE in the root for more details. *
- ******************************************************************************
- */
+******************************************************************************
+* Xenia : Xbox 360 Emulator Research Project                                 *
+******************************************************************************
+* Copyright 2016 Ben Vanik. All rights reserved.                             *
+* Released under the BSD license - see LICENSE in the root for more details. *
+******************************************************************************
+*/
 
 #ifndef XENIA_KERNEL_UTIL_XDBF_UTILS_H_
 #define XENIA_KERNEL_UTIL_XDBF_UTILS_H_
@@ -48,23 +48,25 @@ struct XdbfBlock {
   operator bool() const { return buffer != nullptr; }
 };
 
+struct XbdfAchievement {
+  uint16_t id;
+  std::string label;
+  std::string description;
+  std::string unachieved_desc;
+  uint32_t image_id;
+  uint16_t gamerscore;
+  uint32_t flags;
+};
+
+struct XdbfStringTableEntry {
+  xe::be<uint16_t> id;
+  xe::be<uint16_t> string_length;
+};
+static_assert_size(XdbfStringTableEntry, 4);
+
 // Wraps an XBDF (XboxDataBaseFormat) in-memory database.
 // http://www.free60.org/wiki/XDBF
 class XdbfWrapper {
- public:
-  XdbfWrapper(const uint8_t* data, size_t data_size);
-
-  // True if the target memory contains a valid XDBF instance.
-  bool is_valid() const { return data_ != nullptr; }
-
-  // Gets an entry in the given section.
-  // If the entry is not found the returned block will be nullptr.
-  XdbfBlock GetEntry(XdbfSection section, uint64_t id) const;
-
-  // Gets a string from the string table in the given language.
-  // Returns the empty string if the entry is not found.
-  std::string GetStringTableEntry(XdbfLocale locale, uint16_t string_id) const;
-
  protected:
 #pragma pack(push, 1)
   struct XbdfHeader {
@@ -107,12 +109,46 @@ class XdbfWrapper {
   };
   static_assert_size(XdbfXstrHeader, 14);
 
-  struct XdbfStringTableEntry {
-    xe::be<uint16_t> id;
-    xe::be<uint16_t> string_length;
+  struct XbdfXachHeader {
+    xe::be<uint32_t> magic;
+    xe::be<uint32_t> version;
+    xe::be<uint32_t> size;
+    xe::be<uint16_t> count;
   };
-  static_assert_size(XdbfStringTableEntry, 4);
+  static_assert_size(XbdfXachHeader, 14);
+
+  struct XbdfXachEntry {
+    xe::be<uint16_t> id;
+    xe::be<uint16_t> label_id;
+    xe::be<uint16_t> description_id;
+    xe::be<uint16_t> unachieved_id;
+    xe::be<uint32_t> image_id;
+    xe::be<uint16_t> gamerscore;
+    xe::be<uint16_t> unkE;
+    xe::be<uint32_t> flags;
+    xe::be<uint32_t> unk14;
+    xe::be<uint32_t> unk18;
+    xe::be<uint32_t> unk1C;
+    xe::be<uint32_t> unk20;
+  };
+  static_assert_size(XbdfXachEntry, 0x24);
 #pragma pack(pop)
+ public:
+  XdbfWrapper(const uint8_t* data, size_t data_size);
+
+  // True if the target memory contains a valid XDBF instance.
+  bool is_valid() const { return data_ != nullptr; }
+
+  // Gets an entry in the given section.
+  // If the entry is not found the returned block will be nullptr.
+  XdbfBlock GetEntry(XdbfSection section, uint64_t id) const;
+
+  // Gets a string from the string table in the given language.
+  // Returns the empty string if the entry is not found.
+  std::string GetStringTableEntry(XdbfLocale locale, uint16_t string_id) const;
+
+  uint32_t GetAchievements(XdbfLocale locale,
+                           std::vector<XbdfAchievement>* entries) const;
 
  private:
   const uint8_t* data_ = nullptr;

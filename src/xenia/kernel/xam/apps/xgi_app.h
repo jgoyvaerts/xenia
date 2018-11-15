@@ -26,6 +26,11 @@ class XgiApp : public App {
                                uint32_t buffer_length) override;
 };
 
+struct XUSER_ACHIEVEMENT {
+  xe::be<uint32_t> dwUserIndex;
+  xe::be<uint32_t> dwAchievementId;
+};
+
 }  // namespace apps
 }  // namespace xam
 }  // namespace kernel

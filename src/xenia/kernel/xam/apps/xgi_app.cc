@@ -11,6 +11,11 @@
 
 #include "xenia/base/logging.h"
 #include "xenia/base/threading.h"
+#include "xenia/kernel/util/xdbf_utils.h"
+#include "xenia/kernel/user_module.h"
+#include "xenia/emulator.h"
+#include "xenia/ui/window.h"
+#include "xenia/ui/imgui_dialog.h"
 
 namespace xe {
 namespace kernel {
@@ -54,7 +59,39 @@ X_RESULT XgiApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       uint32_t achievement_count = xe::load_and_swap<uint32_t>(buffer + 0);
       uint32_t achievements_ptr = xe::load_and_swap<uint32_t>(buffer + 4);
       XELOGD("XGIUserWriteAchievements(%.8X, %.8X)", achievement_count,
-             achievements_ptr);
+		  achievements_ptr);
+      auto context = memory_->TranslateVirtual(achievements_ptr);
+      auto* ach = (XUSER_ACHIEVEMENT*)context;
+	  auto module = kernel_state_->GetExecutableModule();
+	  uint32_t resource_data = 0;
+	  uint32_t resource_size = 0;
+	  char title_id[9] = { 0 };
+	  std::snprintf(title_id, xe::countof(title_id), "%08X", module->title_id());
+	  module->GetSection(title_id, &resource_data, &resource_size);
+	  xe::kernel::util::XdbfWrapper wrapper(module->memory()->TranslateVirtual(resource_data), resource_size);
+
+	  std::vector<xe::kernel::util::XbdfAchievement> entries;
+
+	  auto achievementCount = wrapper.GetAchievements(xe::kernel::util::XdbfLocale::kEnglish, &entries);
+	  uint32_t i;
+	  xe::kernel::util::XbdfAchievement achievement;
+	  for (i = 0; i < achievementCount; i++) {
+		  if (entries[i].id == ach->dwAchievementId) {
+			  achievement = entries[0];
+		  }
+	  }
+	  auto img_info = wrapper.GetEntry(xe::kernel::util::XdbfSection::kImage, achievement.image_id);
+	  if (img_info) {
+		  auto img_data = reinterpret_cast<const uint8_t*>(img_info.buffer);
+	  }
+	  auto display_window = kernel_state_->emulator()->display_window();
+	  
+	  display_window->loop()->PostSynchronous([&]() {
+		  xe::ui::ImGuiDialog::ShowMessageBox(
+			  display_window, "Achievement earned!",
+			  achievement.label + " (" + achievement.description + ")");
+	  });
+	  XELOGI("Achievement gained! %s (id: %u, gamerscore: %u, description: %s)", achievement.label.c_str(), achievement.id, achievement.gamerscore, achievement.description.c_str());
       return X_ERROR_SUCCESS;
     }
     case 0x000B0010: {
