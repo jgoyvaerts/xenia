@@ -168,10 +168,6 @@ void HomeTab::PlayTriggered() {
 
     QString path = path_index.data().toString();
 
-    /*wchar_t* title_w = new wchar_t[title.length() + 1];
-    title.toWCharArray(title_w);
-    title_w[title.length()] = '\0';*/
-
     auto win = qobject_cast<QtWindow*>(window());
     app::EmulatorWindow* wnd = new app::EmulatorWindow(win->loop(), "");
     /*wnd->resize(1280, 720);
@@ -187,14 +183,9 @@ void HomeTab::OpenFileTriggered() {
       this, "Open Game", "",
       tr("All Xbox 360 Files (*.xex *.iso);;Xbox 360 Executable (*.xex);;Disc Image (*.iso);;All Files (*)"));
   if (!file_name.isEmpty()) {
-    // this manual conversion seems to be required as Qt's std::(w)string impl
-    // and the one i've been linking to seem incompatible
-    wchar_t* path_w = new wchar_t[file_name.length() + 1];
-    file_name.toWCharArray(path_w);
-    path_w[file_name.length()] = '\0';
 
     XGameLibrary* lib = XGameLibrary::Instance();
-    lib->ScanPath(path_w);
+    lib->ScanPath(file_name.toUtf8().constData());
 
     list_view_->RefreshGameList();
   }
@@ -203,11 +194,6 @@ void HomeTab::OpenFileTriggered() {
 void HomeTab::ImportFolderTriggered() {
   QString path = QFileDialog::getExistingDirectory(this, "Open Folder", "");
   if (!path.isEmpty()) {
-    // this manual conversion seems to be required as Qt's std::(w)string impl
-    // and the one i've been linking to seem incompatible
-    wchar_t* path_w = new wchar_t[path.length() + 1];
-    path.toWCharArray(path_w);
-    path_w[path.length()] = '\0';
 
     QWidget* progress_widget = new QWidget();
     QHBoxLayout* layout = new QHBoxLayout();
@@ -232,7 +218,8 @@ void HomeTab::ImportFolderTriggered() {
     window->AddStatusBarWidget(progress_widget);
 
     XGameLibrary* lib = XGameLibrary::Instance();
-    lib->ScanPathAsync(path_w, [=](double progress, const XGameEntry& entry) {
+    lib->ScanPathAsync(path.toUtf8().constData(), [=](double progress,
+                                                      const XGameEntry& entry) {
       // update progress bar on main UI thread
       QMetaObject::invokeMethod(
           bar,
