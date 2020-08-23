@@ -185,7 +185,7 @@ void HomeTab::PlayTriggered() {
 void HomeTab::OpenFileTriggered() {
   QString file_name = QFileDialog::getOpenFileName(
       this, "Open Game", "",
-      tr("Xbox 360 Executable (*.xex);;Disc Image (*.iso);;All Files (*)"));
+      tr("All Xbox 360 Files (*.xex *.iso);;Xbox 360 Executable (*.xex);;Disc Image (*.iso);;All Files (*)"));
   if (!file_name.isEmpty()) {
     // this manual conversion seems to be required as Qt's std::(w)string impl
     // and the one i've been linking to seem incompatible
