@@ -28,6 +28,15 @@ os: Visual Studio 2019
 init:
   - git config --global core.autocrlf input
 
+# build cache
+cache:
+  - C:\Qt\5.11.2\msvc2017_64 -> .appveyor.yml
+
+# environment variables
+environment:
+  QT_DIR: C:\Qt\5.11.2\msvc2017_64
+  QT_STATIC: 1
+
 install:
   - cmd: xb setup
 

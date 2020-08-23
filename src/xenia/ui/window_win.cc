@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2014 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -13,8 +13,8 @@
 
 #include <string>
 
+#include "menu_win.h"
 #include "xenia/base/assert.h"
-#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/platform_win.h"
 
@@ -51,7 +51,7 @@ bool Win32Window::OnCreate() {
   HINSTANCE hInstance = GetModuleHandle(nullptr);
 
   if (!SetProcessDpiAwareness_ || !GetDpiForMonitor_) {
-    auto shcore = GetModuleHandleW(L"shcore.dll");
+    auto shcore = GetModuleHandle(L"shcore.dll");
     if (shcore) {
       SetProcessDpiAwareness_ =
           GetProcAddress(shcore, "SetProcessDpiAwareness");
@@ -66,7 +66,7 @@ bool Win32Window::OnCreate() {
       auto spda = (decltype(&SetProcessDpiAwareness))SetProcessDpiAwareness_;
       auto res = spda(PROCESS_PER_MONITOR_DPI_AWARE);
       if (res != S_OK) {
-        XELOGW("Failed to set process DPI awareness. (code = 0x{:08X})", res);
+        XELOGW("Failed to set process DPI awareness. (code = 0x%.8X)", res);
       }
     }
 
@@ -77,8 +77,8 @@ bool Win32Window::OnCreate() {
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIconW(hInstance, L"MAINICON");
-    wcex.hIconSm = NULL;  // LoadIconW(hInstance, L"MAINICON");
+    wcex.hIcon = LoadIcon(hInstance, L"MAINICON");
+    wcex.hIconSm = NULL;  // LoadIcon(hInstance, L"MAINICON");
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = nullptr;
@@ -98,17 +98,17 @@ bool Win32Window::OnCreate() {
 
   // Create window.
   hwnd_ =
-      CreateWindowExW(window_ex_style, L"XeniaWindowClass",
-                      reinterpret_cast<LPCWSTR>(xe::to_utf16(title_).c_str()),
-                      window_style, rc.left, rc.top, rc.right - rc.left,
-                      rc.bottom - rc.top, nullptr, nullptr, hInstance, this);
+      CreateWindowEx(window_ex_style, L"XeniaWindowClass",
+                     reinterpret_cast<LPCWSTR>(xe::to_utf16(title_).c_str()),
+                         window_style, rc.left, rc.top, rc.right - rc.left,
+                         rc.bottom - rc.top, nullptr, nullptr, hInstance, this);
   if (!hwnd_) {
     XELOGE("CreateWindow failed");
     return false;
   }
 
   // Disable flicks.
-  ATOM atom = GlobalAddAtomW(L"MicrosoftTabletPenServiceProperty");
+  ATOM atom = GlobalAddAtom(L"MicrosoftTabletPenServiceProperty");
   const DWORD_PTR dwHwndTabletProperty =
       TABLET_DISABLE_PRESSANDHOLD |    // disables press and hold (right-click)
                                        // gesture
@@ -119,8 +119,8 @@ bool Win32Window::OnCreate() {
                                // drag up)
       TABLET_DISABLE_TOUCHSWITCH | TABLET_DISABLE_SMOOTHSCROLLING |
       TABLET_DISABLE_TOUCHUIFORCEON | TABLET_ENABLE_MULTITOUCHDATA;
-  SetPropW(hwnd_, L"MicrosoftTabletPenServiceProperty",
-           reinterpret_cast<HANDLE>(dwHwndTabletProperty));
+  SetProp(hwnd_, L"MicrosoftTabletPenServiceProperty",
+          reinterpret_cast<HANDLE>(dwHwndTabletProperty));
   GlobalDeleteAtom(atom);
 
   // Enable DWM elevation.
@@ -145,7 +145,7 @@ bool Win32Window::OnCreate() {
 }
 
 void Win32Window::EnableMMCSS() {
-  HMODULE hLibrary = LoadLibraryW(L"DWMAPI.DLL");
+  HMODULE hLibrary = LoadLibrary(L"DWMAPI.DLL");
   if (!hLibrary) {
     return;
   }
@@ -186,15 +186,23 @@ void Win32Window::OnClose() {
   super::OnClose();
 }
 
+Menu* Win32Window::CreateMenu() {
+  if (!main_menu_) {
+    main_menu_ = std::make_unique<Win32Menu>(this);
+    OnMainMenuChange();
+  }
+  return main_menu_.get();
+}
+
 void Win32Window::EnableMainMenu() {
   if (main_menu_) {
-    main_menu_->EnableMenuItem(*this);
+    main_menu_->set_enabled(true);
   }
 }
 
 void Win32Window::DisableMainMenu() {
   if (main_menu_) {
-    main_menu_->DisableMenuItem(*this);
+    main_menu_->set_enabled(false);
   }
 }
 
@@ -202,7 +210,7 @@ bool Win32Window::set_title(const std::string& title) {
   if (!super::set_title(title)) {
     return false;
   }
-  SetWindowTextW(hwnd_, reinterpret_cast<LPCWSTR>(xe::to_utf16(title).c_str()));
+  SetWindowText(hwnd_, reinterpret_cast<LPCWSTR>(xe::to_utf16(title).c_str()));
   return true;
 }
 
@@ -213,11 +221,11 @@ bool Win32Window::SetIcon(const void* buffer, size_t size) {
   }
 
   // Reset icon to default.
-  auto default_icon = LoadIconW(GetModuleHandle(nullptr), L"MAINICON");
-  SendMessageW(hwnd_, WM_SETICON, ICON_BIG,
-               reinterpret_cast<LPARAM>(default_icon));
-  SendMessageW(hwnd_, WM_SETICON, ICON_SMALL,
-               reinterpret_cast<LPARAM>(default_icon));
+  auto default_icon = LoadIcon(GetModuleHandle(nullptr), L"MAINICON");
+  SendMessage(hwnd_, WM_SETICON, ICON_BIG,
+              reinterpret_cast<LPARAM>(default_icon));
+  SendMessage(hwnd_, WM_SETICON, ICON_SMALL,
+              reinterpret_cast<LPARAM>(default_icon));
   if (!buffer || !size) {
     return true;
   }
@@ -228,27 +236,11 @@ bool Win32Window::SetIcon(const void* buffer, size_t size) {
       static_cast<DWORD>(size), TRUE, 0x00030000, 0, 0,
       LR_DEFAULTCOLOR | LR_DEFAULTSIZE);
   if (icon_) {
-    SendMessageW(hwnd_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon_));
-    SendMessageW(hwnd_, WM_SETICON, ICON_SMALL,
-                 reinterpret_cast<LPARAM>(icon_));
+    SendMessage(hwnd_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon_));
+    SendMessage(hwnd_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon_));
   }
 
   return false;
-}
-
-bool Win32Window::CaptureMouse() {
-  if (GetCapture() != nullptr) {
-    return false;
-  }
-  SetCapture(hwnd_);
-  return true;
-}
-
-bool Win32Window::ReleaseMouse() {
-  if (GetCapture() != hwnd_) {
-    return false;
-  }
-  return ReleaseCapture() != 0;
 }
 
 bool Win32Window::is_fullscreen() const { return fullscreen_; }
@@ -466,7 +458,7 @@ void Win32Window::Close() {
 }
 
 void Win32Window::OnMainMenuChange() {
-  auto main_menu = reinterpret_cast<Win32MenuItem*>(main_menu_.get());
+  auto main_menu = reinterpret_cast<Win32Menu*>(main_menu_.get());
   // Don't actually set the menu if we're fullscreen. We'll do that later.
   if (main_menu && !is_fullscreen()) {
     ::SetMenu(hwnd_, main_menu->handle());
@@ -537,7 +529,7 @@ LRESULT Win32Window::WndProc(HWND hWnd, UINT message, WPARAM wParam,
     case WM_NCCREATE: {
       // Tell Windows to automatically scale non-client areas on different DPIs.
       auto en = (BOOL(WINAPI*)(HWND hwnd))GetProcAddress(
-          GetModuleHandleW(L"user32.dll"), "EnableNonClientDpiScaling");
+          GetModuleHandle(L"user32.dll"), "EnableNonClientDpiScaling");
       if (en) {
         en(hWnd);
       }
@@ -739,88 +731,6 @@ bool Win32Window::HandleKeyboard(UINT message, WPARAM wParam, LPARAM lParam) {
   }
   return e.is_handled();
 }
-
-std::unique_ptr<ui::MenuItem> MenuItem::Create(Type type,
-                                               const std::string& text,
-                                               const std::string& hotkey,
-                                               std::function<void()> callback) {
-  return std::make_unique<Win32MenuItem>(type, text, hotkey, callback);
-}
-
-Win32MenuItem::Win32MenuItem(Type type, const std::string& text,
-                             const std::string& hotkey,
-                             std::function<void()> callback)
-    : MenuItem(type, text, hotkey, std::move(callback)) {
-  switch (type) {
-    case MenuItem::Type::kNormal:
-      handle_ = CreateMenu();
-      break;
-    case MenuItem::Type::kPopup:
-      handle_ = CreatePopupMenu();
-      break;
-    default:
-      // May just be a placeholder.
-      break;
-  }
-  if (handle_) {
-    MENUINFO menu_info = {0};
-    menu_info.cbSize = sizeof(menu_info);
-    menu_info.fMask = MIM_MENUDATA | MIM_STYLE;
-    menu_info.dwMenuData = ULONG_PTR(this);
-    menu_info.dwStyle = MNS_NOTIFYBYPOS;
-    SetMenuInfo(handle_, &menu_info);
-  }
-}
-
-Win32MenuItem::~Win32MenuItem() {
-  if (handle_) {
-    DestroyMenu(handle_);
-  }
-}
-
-void Win32MenuItem::EnableMenuItem(Window& window) {
-  int i = 0;
-  for (auto iter = children_.begin(); iter != children_.end(); ++iter, i++) {
-    ::EnableMenuItem(handle_, i, MF_BYPOSITION | MF_ENABLED);
-  }
-  DrawMenuBar((HWND)window.native_handle());
-}
-
-void Win32MenuItem::DisableMenuItem(Window& window) {
-  int i = 0;
-  for (auto iter = children_.begin(); iter != children_.end(); ++iter, i++) {
-    ::EnableMenuItem(handle_, i, MF_BYPOSITION | MF_GRAYED);
-  }
-  DrawMenuBar((HWND)window.native_handle());
-}
-
-void Win32MenuItem::OnChildAdded(MenuItem* generic_child_item) {
-  auto child_item = static_cast<Win32MenuItem*>(generic_child_item);
-
-  switch (child_item->type()) {
-    case MenuItem::Type::kNormal:
-      // Nothing special.
-      break;
-    case MenuItem::Type::kPopup:
-      AppendMenuW(
-          handle_, MF_POPUP, reinterpret_cast<UINT_PTR>(child_item->handle()),
-          reinterpret_cast<LPCWSTR>(xe::to_utf16(child_item->text()).c_str()));
-      break;
-    case MenuItem::Type::kSeparator:
-      AppendMenuW(handle_, MF_SEPARATOR, UINT_PTR(child_item->handle_), 0);
-      break;
-    case MenuItem::Type::kString:
-      auto full_name = child_item->text();
-      if (!child_item->hotkey().empty()) {
-        full_name += "\t" + child_item->hotkey();
-      }
-      AppendMenuW(handle_, MF_STRING, UINT_PTR(child_item->handle_),
-                  reinterpret_cast<LPCWSTR>(xe::to_utf16(full_name).c_str()));
-      break;
-  }
-}
-
-void Win32MenuItem::OnChildRemoved(MenuItem* generic_child_item) {}
 
 }  // namespace ui
 }  // namespace xe

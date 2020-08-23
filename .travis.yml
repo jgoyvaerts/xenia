@@ -36,10 +36,16 @@ git:
   # We handle submodules ourselves in xenia-build setup.
   submodules: false
 
+before_install:
+  # Qt
+  - sudo add-apt-repository -y ppa:ubuntu-sdk-team/ppa
+  - sudo apt-get update -yq
+  - sudo apt-get install qt5-default
 before_script:
   - export LIBVULKAN_VERSION=1.1.70
   - export CXX=$CXX_COMPILER
   - export CC=$C_COMPILER
+  - export QT_DIR=/usr
   # Dump useful info.
   - $CXX --version
   - python3 --version

@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2014 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -13,9 +13,9 @@
 #include <memory>
 #include <string>
 
-#include "xenia/base/platform_win.h"
-#include "xenia/ui/menu_item.h"
+#include "xenia/ui/menu.h"
 #include "xenia/ui/window.h"
+#include "xenia/base/platform_win.h"
 
 namespace xe {
 namespace ui {
@@ -31,15 +31,14 @@ class Win32Window : public Window {
   NativeWindowHandle native_handle() const override { return hwnd_; }
   HWND hwnd() const { return hwnd_; }
 
+
+  Menu* CreateMenu() override;
   void EnableMainMenu() override;
   void DisableMainMenu() override;
 
   bool set_title(const std::string& title) override;
 
   bool SetIcon(const void* buffer, size_t size) override;
-
-  bool CaptureMouse() override;
-  bool ReleaseMouse() override;
 
   bool is_fullscreen() const override;
   void ToggleFullscreen(bool fullscreen) override;
@@ -92,27 +91,6 @@ class Win32Window : public Window {
 
   void* SetProcessDpiAwareness_ = nullptr;
   void* GetDpiForMonitor_ = nullptr;
-};
-
-class Win32MenuItem : public MenuItem {
- public:
-  Win32MenuItem(Type type, const std::string& text, const std::string& hotkey,
-                std::function<void()> callback);
-  ~Win32MenuItem() override;
-
-  HMENU handle() { return handle_; }
-
-  void EnableMenuItem(Window& window) override;
-  void DisableMenuItem(Window& window) override;
-
-  using MenuItem::OnSelected;
-
- protected:
-  void OnChildAdded(MenuItem* child_item) override;
-  void OnChildRemoved(MenuItem* child_item) override;
-
- private:
-  HMENU handle_ = nullptr;
 };
 
 }  // namespace ui

@@ -79,7 +79,8 @@ Emulator::Emulator(const std::filesystem::path& command_line,
       title_id_(0),
       paused_(false),
       restoring_(false),
-      restore_fence_() {}
+      restore_fence_(),
+      title_data_(nullptr, 0) {}
 
 Emulator::~Emulator() {
   // Note that we delete things in the reverse order they were initialized.
@@ -106,8 +107,7 @@ Emulator::~Emulator() {
   ExceptionHandler::Uninstall(Emulator::ExceptionCallbackThunk, this);
 }
 
-X_STATUS Emulator::Setup(
-    ui::Window* display_window,
+X_STATUS Emulator::Setup(ui::Window* display_window,
     std::function<std::unique_ptr<apu::AudioSystem>(cpu::Processor*)>
         audio_system_factory,
     std::function<std::unique_ptr<gpu::GraphicsSystem>()>
@@ -162,6 +162,12 @@ X_STATUS Emulator::Setup(
     return X_STATUS_UNSUCCESSFUL;
   }
 
+  // Bring up the virtual filesystem used by the kernel.
+  file_system_ = std::make_unique<xe::vfs::VirtualFileSystem>();
+
+  // Shared kernel state.
+  kernel_state_ = std::make_unique<xe::kernel::KernelState>(this);
+
   // Initialize the APU.
   if (audio_system_factory) {
     audio_system_ = audio_system_factory(processor_.get());
@@ -193,44 +199,13 @@ X_STATUS Emulator::Setup(
     return result;
   }
 
-  // Bring up the virtual filesystem used by the kernel.
-  file_system_ = std::make_unique<xe::vfs::VirtualFileSystem>();
-
-  // Shared kernel state.
-  kernel_state_ = std::make_unique<xe::kernel::KernelState>(this);
-
-  // Setup the core components.
-  result = graphics_system_->Setup(processor_.get(), kernel_state_.get(),
-                                   display_window_);
-  if (result) {
-    return result;
-  }
-
-  if (audio_system_) {
-    result = audio_system_->Setup(kernel_state_.get());
-    if (result) {
-      return result;
-    }
-  }
-
-#define LOAD_KERNEL_MODULE(t) \
-  static_cast<void>(kernel_state_->LoadKernelModule<kernel::t>())
   // HLE kernel modules.
-  LOAD_KERNEL_MODULE(xboxkrnl::XboxkrnlModule);
-  LOAD_KERNEL_MODULE(xam::XamModule);
-  LOAD_KERNEL_MODULE(xbdm::XbdmModule);
-#undef LOAD_KERNEL_MODULE
+  kernel_state_->LoadKernelModule<kernel::xboxkrnl::XboxkrnlModule>();
+  kernel_state_->LoadKernelModule<kernel::xam::XamModule>();
+  kernel_state_->LoadKernelModule<kernel::xbdm::XbdmModule>();
 
   // Initialize emulator fallback exception handling last.
   ExceptionHandler::Install(Emulator::ExceptionCallbackThunk, this);
-
-  if (display_window_) {
-    // Finish initializing the display.
-    display_window_->loop()->PostSynchronous([this]() {
-      xe::ui::GraphicsContextLock context_lock(display_window_->context());
-      Profiler::set_window(display_window_);
-    });
-  }
 
   return result;
 }
@@ -481,7 +456,7 @@ bool Emulator::RestoreFromFile(const std::filesystem::path& path) {
       kernel_state_->object_table()->GetObjectsByType<kernel::XThread>();
   for (auto thread : threads) {
     if (thread->main_thread()) {
-      main_thread_ = thread;
+      main_thread_ = thread->thread();
       break;
     }
   }
@@ -584,9 +559,7 @@ bool Emulator::ExceptionCallback(Exception* ex) {
 
 void Emulator::WaitUntilExit() {
   while (true) {
-    if (main_thread_) {
-      xe::threading::Wait(main_thread_->thread(), false);
-    }
+    xe::threading::Wait(main_thread_, false);
 
     if (restoring_) {
       restore_fence_.Wait();
@@ -688,12 +661,12 @@ X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
   on_shader_storage_initialization(true);
   graphics_system_->InitializeShaderStorage(storage_root_, title_id_, true);
   on_shader_storage_initialization(false);
-
-  auto main_thread = kernel_state_->LaunchModule(module);
-  if (!main_thread) {
+  auto main_xthread = kernel_state_->LaunchModule(module);
+  if (!main_xthread) {
     return X_STATUS_UNSUCCESSFUL;
   }
-  main_thread_ = main_thread;
+
+  main_thread_ = main_xthread->thread();
   on_launch(title_id_, game_title_);
 
   return X_STATUS_SUCCESS;

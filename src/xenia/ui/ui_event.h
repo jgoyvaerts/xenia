@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2014 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -10,6 +10,8 @@
 #ifndef XENIA_UI_UI_EVENT_H_
 #define XENIA_UI_UI_EVENT_H_
 
+#include <string>
+#include <vector>
 #include <filesystem>
 
 namespace xe {
@@ -30,14 +32,22 @@ class UIEvent {
 
 class FileDropEvent : public UIEvent {
  public:
-  FileDropEvent(Window* target, std::filesystem::path filename)
-      : UIEvent(target), filename_(std::move(filename)) {}
+  FileDropEvent(Window* target, const std::filesystem::path& filename)
+      : UIEvent(target), files_(1) {
+    files_.emplace_back(filename);
+  }
+
+  FileDropEvent(Window* target,
+                const std::vector<std::filesystem::path>& files)
+      : UIEvent(target), files_(files) {}
+
   ~FileDropEvent() override = default;
 
-  const std::filesystem::path& filename() const { return filename_; }
+  const std::filesystem::path& filename() const { return files_.front(); }
+  const std::vector<std::filesystem::path>& files() const { return files_; }
 
  private:
-  const std::filesystem::path filename_;
+  std::vector<std::filesystem::path> files_;
 };
 
 class KeyEvent : public UIEvent {

@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2014 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -13,10 +13,11 @@
 #include <memory>
 #include <string>
 
+#include "xenia/base/filesystem.h"
 #include "xenia/base/delegate.h"
 #include "xenia/ui/graphics_context.h"
 #include "xenia/ui/loop.h"
-#include "xenia/ui/menu_item.h"
+#include "xenia/ui/menu.h"
 #include "xenia/ui/ui_event.h"
 #include "xenia/ui/window_listener.h"
 
@@ -38,11 +39,8 @@ class Window {
   virtual NativePlatformHandle native_platform_handle() const = 0;
   virtual NativeWindowHandle native_handle() const = 0;
 
-  MenuItem* main_menu() const { return main_menu_.get(); }
-  void set_main_menu(std::unique_ptr<MenuItem> main_menu) {
-    main_menu_ = std::move(main_menu);
-    OnMainMenuChange();
-  }
+  Menu* main_menu() const { return main_menu_.get(); }
+  virtual Menu* CreateMenu() = 0;
 
   virtual void EnableMainMenu() = 0;
   virtual void DisableMainMenu() = 0;
@@ -58,9 +56,6 @@ class Window {
 
   virtual bool SetIcon(const void* buffer, size_t size) = 0;
   void ResetIcon() { SetIcon(nullptr, 0); }
-
-  virtual bool CaptureMouse() = 0;
-  virtual bool ReleaseMouse() = 0;
 
   virtual bool is_fullscreen() const { return false; }
   virtual void ToggleFullscreen(bool fullscreen) {}
@@ -170,7 +165,7 @@ class Window {
   void OnKeyPress(KeyEvent* e, bool is_down, bool is_char);
 
   Loop* loop_ = nullptr;
-  std::unique_ptr<MenuItem> main_menu_;
+  std::unique_ptr<Menu> main_menu_;
   std::string title_;
   int32_t width_ = 0;
   int32_t height_ = 0;
@@ -183,9 +178,9 @@ class Window {
 
   uint32_t frame_count_ = 0;
   uint32_t fps_ = 0;
-  uint64_t fps_update_time_ticks_ = 0;
+  uint64_t fps_update_time_ns_ = 0;
   uint64_t fps_frame_count_ = 0;
-  uint64_t last_paint_time_ticks_ = 0;
+  uint64_t last_paint_time_ns_ = 0;
 
   bool modifier_shift_pressed_ = false;
   bool modifier_cntrl_pressed_ = false;

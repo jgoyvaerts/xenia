@@ -164,30 +164,28 @@ class StfsHeader {
 };
 
 class StfsContainerDevice : public Device {
- public:
+
+public:
+  const std::string& name() const override;
+  uint32_t attributes() const override;
+  uint32_t component_name_max_length() const override;
   StfsContainerDevice(const std::string_view mount_path,
                       const std::filesystem::path& host_path);
   ~StfsContainerDevice() override;
 
   bool Initialize() override;
   void Dump(StringBuffer* string_buffer) override;
-  Entry* ResolvePath(const std::string_view path) override;
-
-  const std::string& name() const override { return name_; }
-  uint32_t attributes() const override { return 0; }
-  uint32_t component_name_max_length() const override { return 40; }
+  Entry* ResolvePath(std::string_view path) override;
 
   uint32_t total_allocation_units() const override {
     return uint32_t(mmap_total_size_ / sectors_per_allocation_unit() /
                     bytes_per_sector());
   }
   uint32_t available_allocation_units() const override { return 0; }
-  uint32_t sectors_per_allocation_unit() const override { return 8; }
-  uint32_t bytes_per_sector() const override { return 0x200; }
+  uint32_t sectors_per_allocation_unit() const override { return 1; }
+  uint32_t bytes_per_sector() const override { return 4 * 1024; }
 
  private:
-  const uint32_t kSectorSize = 0x1000;
-
   enum class Error {
     kSuccess = 0,
     kErrorOutOfMemory = -1,
@@ -203,12 +201,11 @@ class StfsContainerDevice : public Device {
 
   const uint32_t kSTFSHashSpacing = 170;
 
+  const char* ReadMagic(const std::filesystem::path& path);
   bool ResolveFromFolder(const std::filesystem::path& path);
 
   Error MapFiles();
-  static Error ReadPackageType(const uint8_t* map_ptr, size_t map_size,
-                               StfsPackageType* package_type_out);
-  Error ReadHeaderAndVerify(const uint8_t* map_ptr, size_t map_size);
+  Error ReadHeaderAndVerify(const uint8_t* map_ptr);
 
   Error ReadSVOD();
   Error ReadEntrySVOD(uint32_t sector, uint32_t ordinal,

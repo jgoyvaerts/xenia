@@ -2,72 +2,63 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2018 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
 
-#ifndef XENIA_APP_EMULATOR_WINDOW_H_
-#define XENIA_APP_EMULATOR_WINDOW_H_
+#ifndef XENIA_APP_MAIN_WINDOW_H_
+#define XENIA_APP_MAIN_WINDOW_H_
 
-#include <memory>
-#include <string>
+#include <QMainWindow>
+#include <QVulkanInstance>
+#include <QWindow>
 
-#include "xenia/ui/loop.h"
-#include "xenia/ui/menu_item.h"
-#include "xenia/ui/window.h"
-#include "xenia/xbox.h"
-
-namespace xe {
-class Emulator;
-}  // namespace xe
+#include "xenia/emulator.h"
+#include "xenia/ui/graphics_context.h"
+#include "xenia/ui/graphics_provider.h"
+#include "xenia/ui/qt/window_qt.h"
+#include "xenia/ui/qt/loop_qt.h"
 
 namespace xe {
 namespace app {
 
-class EmulatorWindow {
+class VulkanWindow;
+class VulkanRenderer;
+
+using ui::qt::QtWindow;
+using ui::Loop;
+
+class EmulatorWindow : public ui::qt::QtWindow {
+  Q_OBJECT
+
  public:
-  virtual ~EmulatorWindow();
+  EmulatorWindow(Loop *loop, const std::string& title);
 
-  static std::unique_ptr<EmulatorWindow> Create(Emulator* emulator);
+  bool Launch(const std::string& path);
 
-  Emulator* emulator() const { return emulator_; }
-  ui::Loop* loop() const { return loop_.get(); }
-  ui::Window* window() const { return window_.get(); }
+  xe::Emulator* emulator() { return emulator_.get(); }
 
-  void UpdateTitle();
-  void ToggleFullscreen();
-  void SetInitializingShaderStorage(bool initializing);
+ protected:
+  // Events
+
+ private slots:
 
  private:
-  explicit EmulatorWindow(Emulator* emulator);
+  void CreateMenuBar();
 
-  bool Initialize();
+  bool InitializeVulkan();
 
-  void FileDrop(const std::filesystem::path& filename);
-  void FileOpen();
-  void FileClose();
-  void ShowContentDirectory();
-  void CheckHideCursor();
-  void CpuTimeScalarReset();
-  void CpuTimeScalarSetHalf();
-  void CpuTimeScalarSetDouble();
-  void CpuBreakIntoDebugger();
-  void CpuBreakIntoHostDebugger();
-  void GpuTraceFrame();
-  void GpuClearCaches();
-  void ShowHelpWebsite();
-  void ShowCommitID();
+  std::unique_ptr<xe::Emulator> emulator_;
 
-  Emulator* emulator_;
-  std::unique_ptr<ui::Loop> loop_;
-  std::unique_ptr<ui::Window> window_;
-  std::string base_title_;
-  uint64_t cursor_hide_time_ = 0;
-  bool initializing_shader_storage_ = false;
+  std::unique_ptr<QWindow> graphics_window_;
+  std::unique_ptr<ui::GraphicsProvider> graphics_provider_;
+  std::unique_ptr<hid::InputSystem> input_system_;
+
+  std::unique_ptr<QVulkanInstance> vulkan_instance_;
 };
 
 }  // namespace app
 }  // namespace xe
 
-#endif  // XENIA_APP_EMULATOR_WINDOW_H_
+#endif  // XENIA_UI_QT_MAIN_WINDOW_H_

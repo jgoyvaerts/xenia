@@ -7,8 +7,8 @@
  ******************************************************************************
  */
 
-#ifndef XENIA_UI_MENU_ITEM_H_
-#define XENIA_UI_MENU_ITEM_H_
+#ifndef XENIA_UI_MENU_H_
+#define XENIA_UI_MENU_H_
 
 #include <functional>
 #include <memory>
@@ -23,23 +23,16 @@ namespace ui {
 class Window;
 
 class MenuItem {
- public:
-  typedef std::unique_ptr<MenuItem, void (*)(MenuItem*)> MenuItemPtr;
+  friend class Menu;
 
+ public:
+  using Callback = std::function<void()>;
   enum class Type {
-    kPopup,  // Popup menu (submenu)
+    kSubmenu,  // Submenu (Popup menu in win32)
     kSeparator,
-    kNormal,  // Root menu
+    kRoot,    // Root menu
     kString,  // Menu is just a string
   };
-
-  static std::unique_ptr<MenuItem> Create(Type type);
-  static std::unique_ptr<MenuItem> Create(Type type, const std::string& text);
-  static std::unique_ptr<MenuItem> Create(Type type, const std::string& text,
-                                          std::function<void()> callback);
-  static std::unique_ptr<MenuItem> Create(Type type, const std::string& text,
-                                          const std::string& hotkey,
-                                          std::function<void()> callback);
 
   virtual ~MenuItem();
 
@@ -48,9 +41,9 @@ class MenuItem {
   const std::string& text() { return text_; }
   const std::string& hotkey() { return hotkey_; }
 
-  void AddChild(MenuItem* child_item);
-  void AddChild(std::unique_ptr<MenuItem> child_item);
-  void AddChild(MenuItemPtr child_item);
+  virtual MenuItem* CreateChild(Type type, std::string text = "",
+                                std::string hotkey = "",
+                                Callback callback = nullptr) = 0;
   void RemoveChild(MenuItem* child_item);
   MenuItem* child(size_t index);
 
@@ -58,20 +51,55 @@ class MenuItem {
   virtual void DisableMenuItem(Window& window) = 0;
 
  protected:
-  MenuItem(Type type, const std::string& text, const std::string& hotkey,
-           std::function<void()> callback);
+  MenuItem(Menu* menu, Type type, const std::string& text,
+           const std::string& hotkey, Callback callback);
 
   virtual void OnChildAdded(MenuItem* child_item) {}
   virtual void OnChildRemoved(MenuItem* child_item) {}
 
   virtual void OnSelected(UIEvent* e);
 
+  Menu* menu_;
   Type type_;
   MenuItem* parent_item_;
-  std::vector<MenuItemPtr> children_;
+  std::vector<std::unique_ptr<MenuItem>> children_;
   std::string text_;
   std::string hotkey_;
   std::function<void()> callback_;
+};
+
+class Menu {
+  using MenuType = MenuItem::Type;
+
+ public:
+  explicit Menu(Window* window) : window_(window), enabled_(true) {}
+
+  virtual ~Menu() = default;
+
+  virtual MenuItem* CreateMenuItem(const std::string& title) = 0;
+
+  Window* window() const { return window_; }
+  const std::vector<std::unique_ptr<MenuItem>>& menu_items() const {
+    return menu_items_;
+  }
+
+  bool enabled() const { return enabled_; }
+
+  void set_enabled(bool enabled) {
+    enabled_ = enabled;
+    for (const auto& menu_item : menu_items_) {
+      if (enabled) {
+        menu_item->EnableMenuItem(*window());
+      } else {
+        menu_item->DisableMenuItem(*window());
+      }
+    }
+  }
+
+ protected:
+  Window* window_;
+  std::vector<std::unique_ptr<MenuItem>> menu_items_;
+  bool enabled_;
 };
 
 }  // namespace ui

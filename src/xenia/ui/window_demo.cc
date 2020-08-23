@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2020 Ben Vanik. All rights reserved.                             *
+ * Copyright 2015 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -26,7 +26,7 @@ namespace ui {
 // Implemented in one of the window_*_demo.cc files under a subdir.
 std::unique_ptr<GraphicsProvider> CreateDemoGraphicsProvider(Window* window);
 
-int window_demo_main(const std::vector<std::string>& args) {
+int window_demo_main(const std::vector<std::wstring>& args) {
   Profiler::Initialize();
   Profiler::ThreadEnter("main");
 
@@ -43,25 +43,20 @@ int window_demo_main(const std::vector<std::string>& args) {
   });
 
   // Main menu.
-  auto main_menu = MenuItem::Create(MenuItem::Type::kNormal);
-  auto file_menu = MenuItem::Create(MenuItem::Type::kPopup, "&File");
+  auto main_menu = window->CreateMenu();
+  auto file_menu = main_menu->CreateMenuItem(L"&File");
   {
-    file_menu->AddChild(MenuItem::Create(MenuItem::Type::kString, "&Close",
-                                         "Alt+F4",
-                                         [&window]() { window->Close(); }));
+    file_menu->CreateChild(MenuItem::Type::kString, L"&Close", L"Alt+F4",
+                           [&window]() { window->Close(); });
   }
-  main_menu->AddChild(std::move(file_menu));
-  auto debug_menu = MenuItem::Create(MenuItem::Type::kPopup, "&Debug");
+  auto debug_menu = main_menu->CreateMenuItem(L"&Debug");
   {
-    debug_menu->AddChild(MenuItem::Create(MenuItem::Type::kString,
-                                          "Toggle Profiler &Display", "F3",
-                                          []() { Profiler::ToggleDisplay(); }));
-    debug_menu->AddChild(MenuItem::Create(MenuItem::Type::kString,
-                                          "&Pause/Resume Profiler", "`",
-                                          []() { Profiler::TogglePause(); }));
+    debug_menu->CreateChild(MenuItem::Type::kString,
+                            L"Toggle Profiler &Display", L"F3",
+                            []() { Profiler::ToggleDisplay(); });
+    debug_menu->CreateChild(MenuItem::Type::kString, L"&Pause/Resume Profiler",
+                            L"`", []() { Profiler::TogglePause(); });
   }
-  main_menu->AddChild(std::move(debug_menu));
-  window->set_main_menu(std::move(main_menu));
 
   // Initial size setting, done here so that it knows the menu exists.
   window->Resize(1920, 1200);
@@ -102,7 +97,7 @@ int window_demo_main(const std::vector<std::string>& args) {
   window->on_painting.AddListener([&](xe::ui::UIEvent* e) {
     auto& io = window->imgui_drawer()->GetIO();
 
-    ImGui::ShowDemoWindow();
+    ImGui::ShowTestWindow();
     ImGui::ShowMetricsWindow();
 
     // Continuous paint.
