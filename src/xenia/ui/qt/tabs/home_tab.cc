@@ -178,7 +178,7 @@ void HomeTab::PlayTriggered() {
     wnd->show();*/
     win->setCentralWidget(wnd);
 
-    wnd->Launch(path.toStdString());
+    wnd->Launch(path.toUtf8().constData());
   }
 }
 
