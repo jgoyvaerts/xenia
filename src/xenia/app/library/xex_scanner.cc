@@ -491,8 +491,8 @@ X_STATUS ReadXexResources(File* file, XexInfo* info) {
     auto resource = &resources[i];
 
     uint32_t title_id = info->execution_info.title_id;
-    uint32_t name =
-        xe::string_util::from_string<uint32_t>(resource->name, true);
+    uint32_t name = xe::string_util::from_string<uint32_t>(
+        std::string(reinterpret_cast<char*>(resource->name), 8), true);
     XELOGI("Found resource: %X", name);
 
     // Game resources are listed as the TitleID

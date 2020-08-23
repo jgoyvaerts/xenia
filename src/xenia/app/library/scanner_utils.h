@@ -113,7 +113,7 @@ inline const bool CompareCaseInsensitive(const wstring& left,
 
 inline const std::filesystem::path GetFileExtension(
     const std::filesystem::path& path) {
-  return path.extension();
+  return xe::utf8::lower_ascii(xe::path_to_utf8(path.extension()));
 }
 
 inline const std::filesystem::path GetFileName(const std::filesystem::path& path) {
@@ -157,8 +157,8 @@ inline void ReadStfsMagic(const std::filesystem::path& path, char out[4]) {
 inline const XGameFormat ResolveFormat(const std::filesystem::path& path) {
   const std::wstring& extension = GetFileExtension(path);
 
-  if (CompareCaseInsensitive(extension, L"iso")) return XGameFormat::kIso;
-  if (CompareCaseInsensitive(extension, L"xex")) return XGameFormat::kXex;
+  if (CompareCaseInsensitive(extension, L".iso")) return XGameFormat::kIso;
+  if (CompareCaseInsensitive(extension, L".xex")) return XGameFormat::kXex;
 
   // STFS Container
   char magic[4];

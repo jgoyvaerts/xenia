@@ -11,18 +11,19 @@ namespace app {
 using filesystem::FileInfo;
 using AsyncCallback = XGameScanner::AsyncCallback;
 
-std::vector<wstring> XGameScanner::FindGamesInPath(const wstring& path) {
+std::vector<std::filesystem::path> XGameScanner::FindGamesInPath(
+    const std::filesystem::path& path) {
   // Path is a directory, scan recursively
   // TODO: Warn about recursively scanning paths with large hierarchies
 
-  std::deque<wstring> queue;
+  std::deque<std::filesystem::path> queue;
   queue.push_front(path);
 
-  std::vector<wstring> paths;
+  std::vector<std::filesystem::path> paths;
   int game_count = 0;
 
   while (!queue.empty()) {
-    wstring current_path = queue.front();
+    std::filesystem::path current_path = queue.front();
     FileInfo current_file;
     filesystem::GetInfo(current_path, &current_file);
 
@@ -34,10 +35,10 @@ std::vector<wstring> XGameScanner::FindGamesInPath(const wstring& path) {
       for (FileInfo file : directory_files) {
         if (CompareCaseInsensitive(file.name, L"$SystemUpdate")) continue;
 
-        auto next_path = (current_path, file.name);
+        auto next_path = current_path / file.name;
         // Skip searching directories with an extracted default.xex file
-        if (std::filesystem::exists(next_path / L"default.xex")) {
-          queue.push_front(next_path / L"default.xex");
+        if (std::filesystem::exists(next_path / "default.xex")) {
+          queue.push_front(next_path / "default.xex");
           continue;
         }
         queue.push_front(next_path);
@@ -45,7 +46,7 @@ std::vector<wstring> XGameScanner::FindGamesInPath(const wstring& path) {
     } else {
       // Exclusively scan iso, xex, or files without an extension.
       auto extension = GetFileExtension(current_path);
-      if (!extension.empty() && extension != L"xex" && extension != L"iso") {
+      if (!extension.empty() && extension != ".xex" && extension != ".iso") {
         continue;
       }
 
@@ -63,7 +64,8 @@ std::vector<wstring> XGameScanner::FindGamesInPath(const wstring& path) {
   return paths;
 }
 
-std::vector<XGameEntry> XGameScanner::ScanPath(const wstring& path) {
+std::vector<XGameEntry> XGameScanner::ScanPath(
+    const std::filesystem::path& path) {
   std::vector<XGameEntry> games;
 
   // Check if the given path exists
@@ -80,8 +82,9 @@ std::vector<XGameEntry> XGameScanner::ScanPath(const wstring& path) {
       games.emplace_back(std::move(game_entry));
     }
   } else {
-    const std::vector<wstring>& game_paths = FindGamesInPath(path);
-    for (const wstring& game_path : game_paths) {
+    const std::vector<std::filesystem::path>& game_paths =
+        FindGamesInPath(path);
+    for (const std::filesystem::path& game_path : game_paths) {
       XGameEntry game_entry;
       if (XFAILED(ScanGame(game_path, &game_entry))) {
         continue;
@@ -94,20 +97,23 @@ std::vector<XGameEntry> XGameScanner::ScanPath(const wstring& path) {
   return games;
 }
 
-int XGameScanner::ScanPathAsync(const wstring& path, const AsyncCallback& cb) {
-  std::vector<wstring> paths = {path};
+int XGameScanner::ScanPathAsync(const std::filesystem::path& path,
+                                const AsyncCallback& cb) {
+  std::vector<std::filesystem::path> paths = {path};
   return ScanPathsAsync(paths, cb);
 }
 
-int XGameScanner::ScanPathsAsync(const std::vector<wstring>& paths,
+int XGameScanner::ScanPathsAsync(
+    const std::vector<std::filesystem::path>& paths,
                                  const AsyncCallback& cb) {
   // start scanning in a new thread
   // TODO: switch to xe::threading::Thread instead of std::thread?
   std::thread scan_thread = std::thread(
-      [](std::vector<wstring> paths, AsyncCallback cb) {
+      [](std::vector<std::filesystem::path> paths, AsyncCallback cb) {
         std::atomic<int> scanned = 0;
 
-        auto scan_func = [&](const std::vector<wstring>& paths, size_t start,
+        auto scan_func = [&](const std::vector<std::filesystem::path>& paths,
+                             size_t start,
                              size_t size) {
           for (auto it = paths.begin() + start;
                it != paths.begin() + start + size; ++it) {

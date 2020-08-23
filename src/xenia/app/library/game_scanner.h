@@ -18,22 +18,23 @@ class XGameScanner {
   using AsyncCallback = std::function<void(const XGameEntry&, int)>;
 
   // Returns a vector of all supported games in provided path.
-  static std::vector<wstring> FindGamesInPath(const wstring& path);
+  static std::vector<std::filesystem::path> FindGamesInPath(
+      const std::filesystem::path& path);
 
   // Scans a provided path and recursively parses the games.
   // Returns a vector of parsed game entries.
-  static std::vector<XGameEntry> ScanPath(const wstring& path);
+  static std::vector<XGameEntry> ScanPath(const std::filesystem::path& path);
 
   // Scans a provided path and recursively parses the games asynchronously.
   // The callback provided is called on each successfully parsed game.
   // Returns the number of games found in the path.
-  static int ScanPathAsync(const wstring& path,
+  static int ScanPathAsync(const std::filesystem::path& path,
                            const AsyncCallback& cb = nullptr);
 
   // Scans a list of provided paths and recursively parses the games
   // asynchronously. The callback provided is called on each successfully parsed
   // game. Returns the number of games found in all paths provided.
-  static int ScanPathsAsync(const std::vector<wstring>& paths,
+  static int ScanPathsAsync(const std::vector<std::filesystem::path>& paths,
                             const AsyncCallback& cb = nullptr);
 
   // Scans a path for a single game, populating the provided output game entry
